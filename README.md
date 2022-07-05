@@ -3,7 +3,7 @@
 ## Introduction
 
 Nut is a programming language is based on the book 
-[crafting interpreters](https://craftinginterpreters.com/) by Robert Nystrom. My inmlementation is written in python but will be ported to zig after finishing the bytecode vm.
+[crafting interpreters](https://craftinginterpreters.com/) by Robert Nystrom. My implementation is written in python but will be ported to zig after finishing the bytecode vm.
 
 ## Reqirements
 
