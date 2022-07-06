@@ -2,3 +2,5 @@
 build
 lox_env
 __pycache__/
+zig-cache
+zig-out
