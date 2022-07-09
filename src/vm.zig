@@ -9,7 +9,6 @@ const Opcode = chunk.OpCode;
 const Value = value.Value;
 const print = std.debug.print;
 
-const VmError = error{ CompileError, RuntimeError };
 const trace = true;
 
 pub const Vm = struct {

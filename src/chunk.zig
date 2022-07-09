@@ -26,6 +26,11 @@ pub const Chunk = struct {
 
     pub fn deinit(self: *Chunk) void {
         self.code.deinit();
+
+        for (self.constants.items) |constant| {
+            constant.deinit(self.allocator);
+        }
+
         self.constants.deinit();
         self.allocator.destroy(self);
     }
@@ -102,12 +107,12 @@ pub const Chunk = struct {
             .LOAD_CONST => {
                 var it = self.code.items[of_tmp];
                 of_tmp += 1;
-                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it] });
+                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value.number });
             },
             .LOAD_CONST_LONG => {
                 var it = self.read_u32(of_tmp);
                 of_tmp += 4;
-                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it] });
+                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value.number });
             },
 
             else => {
@@ -126,7 +131,7 @@ pub const Chunk = struct {
         return of_tmp;
     }
 
-    pub fn add_constant(self: *Chunk, val: Value) !usize {
+    pub fn add_constant(self: *Chunk, val: *Value) !usize {
         try self.constants.append(val);
         return self.constants.items.len - 1;
     }
