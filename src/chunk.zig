@@ -31,26 +31,31 @@ pub const Chunk = struct {
             constant.deinit(self.allocator);
         }
 
+        self.lines.deinit();
         self.constants.deinit();
         self.allocator.destroy(self);
     }
 
-    pub fn write_chunk(self: *Chunk, op: OpCode, line: u32) !void {
-        try self.write_u8(@enumToInt(op));
-        try self.write_u32(line);
+    pub fn write_chunk(self: *Chunk, op: OpCode, line: usize) !void {
+        try self.write_u8(@enumToInt(op), line);
     }
 
-    pub fn write_u8(self: *Chunk, _value: u8) !void {
+    pub fn write_u8(self: *Chunk, _value: u8, line: usize) !void {
         try self.code.append(_value);
+        try self.lines.append(line);
     }
 
-    pub fn write_u16(self: *Chunk, _value: u16) !void {
+    pub fn write_u16(self: *Chunk, _value: u16, line: usize) !void {
         //split into two u8s
+        try self.lines.append(line);
+
         try self.code.append(_value >> 8);
         try self.code.append(_value & 0xFF);
     }
 
-    pub fn write_u32(self: *Chunk, _value: u32) !void {
+    pub fn write_u32(self: *Chunk, _value: u32, line: usize) !void {
+        try self.lines.append(line);
+
         //split into four u8s
         // try self.code.append(_value >> 24);
         // try self.code.append(_value >> 16);
@@ -97,8 +102,7 @@ pub const Chunk = struct {
         var op = @intToEnum(OpCode, self.read_u8(offset));
         of_tmp += 1;
 
-        var line = self.read_u32(of_tmp);
-        of_tmp += 4;
+        var line = self.lines.items[offset];
 
         //line(4)//op(1)//oprand(1)
         var format: [255]u8 = std.mem.zeroes([255]u8);
