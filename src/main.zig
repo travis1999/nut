@@ -70,6 +70,10 @@ const Nut = struct {
     pub fn interpret(self: *Nut, source: [] u8) !void {
         var cmp = compiler.Compiler.init(self.allocator);
         var cnk = try cmp.compile(source);
+        errdefer cnk.deinit();
+
+        try self.vm_.run(cnk);
+
         cnk.deinit();
     }
 };
