@@ -14,17 +14,24 @@ const trace = true;
 pub const Vm = struct {
     chunk: ?*chunk.Chunk = null,
     ip: usize = 0,
-    stack: ArrayList(Value),
+    stack: ArrayList(*Value),
     alloc: Allocator,
+    allocated: ArrayList(*Value),
 
     pub fn init(alloc: Allocator) !Vm {
-        return Vm{ .alloc = alloc, .stack = ArrayList(Value).init(alloc) };
+        return Vm{ .alloc = alloc, .stack = ArrayList(*Value).init(alloc), .allocated = ArrayList(*Value).init(alloc) };
     }
 
     pub fn deinit(self: *Vm) void {
         // if (self.chunk) |ck| {
         //     ck.deinit();
         // }
+
+        for (self.allocated.items) |allocated| {
+            allocated.deinit(self.alloc);
+        }
+
+        self.allocated.deinit();
         self.stack.deinit();
     }
 

@@ -7,19 +7,30 @@ const value = @import("value.zig");
 const Value = value.Value;
 const ValueArray = value.ValueArray;
 
-pub const OpCode = enum { RETURN, LOAD_CONST, LOAD_CONST_LONG, ADD, SUB, MULTIPLY, DIVIDE, NEGATE, };
+pub const OpCode = enum {
+    RETURN,
+    LOAD_CONST,
+    LOAD_CONST_LONG,
+    ADD,
+    SUB,
+    MULTIPLY,
+    DIVIDE,
+    NEGATE,
+};
 
 pub const Chunk = struct {
     code: ArrayList(u8),
     allocator: Allocator,
     constants: ValueArray,
     pre_line: usize = 0,
+    lines: ArrayList(usize),
 
     pub fn new(alloc: Allocator) !*Chunk {
         var chunk = try alloc.create(Chunk);
         chunk.allocator = alloc;
         chunk.code = ArrayList(u8).init(alloc);
         chunk.constants = ValueArray.init(alloc);
+        chunk.lines = ArrayList(usize).init(alloc);
 
         return chunk;
     }
@@ -119,9 +130,7 @@ pub const Chunk = struct {
                 _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value.number });
             },
 
-            else => {
-
-            }
+            else => {},
         }
 
         if (line == self.pre_line) {
@@ -140,27 +149,3 @@ pub const Chunk = struct {
         return self.constants.items.len - 1;
     }
 };
-
-test "chunk create and free" {
-    const allocator = testing.allocator;
-
-    var chunk = try Chunk.new(allocator);
-    defer chunk.deinit();
-
-    //LOAD_CONST 0
-    var constant = try chunk.add_constant(12.4);
-    try chunk.write_chunk(.LOAD_CONST, 123);
-    try chunk.write_u8(@intCast(u8, constant));
-
-    //LOAD_CONST_LONG 1
-    var const2 = try chunk.add_constant(50.8);
-    try chunk.write_chunk(.LOAD_CONST_LONG, 123);
-    try chunk.write_u32(@intCast(u32, const2));
-
-    //return
-    try chunk.write_chunk(.RETURN, 124);
-
-    try chunk.disassemble_chunk("test");
-
-    try testing.expectEqual(chunk.code.items.len, 20);
-}

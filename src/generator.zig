@@ -18,20 +18,19 @@ pub const Generator = struct {
     }
 
     pub fn write_opcode(self: *Generator, opcode: chunk.OpCode, line: usize) !void {
-        try self.curr_chunk.write_u8(@enumToInt(opcode));
-        if (self.mode == Mode.DEBUG) try self.curr_chunk.write_u32(@intCast(u32, line));
+        try self.curr_chunk.write_chunk(opcode, line);
     }
 
-    fn write_oprand_u8(self: *Generator, byte: u8) !void {
-        try self.curr_chunk.write_u8(byte);
+    fn write_oprand_u8(self: *Generator, byte: u8, line: usize) !void {
+        try self.curr_chunk.write_u8(byte, line);
     }
 
-    fn write_oprand_u16(self: *Generator, value: u16) !void {
-        try self.curr_chunk.write_16(value);
+    fn write_oprand_u16(self: *Generator, value: u16, line: usize) !void {
+        try self.curr_chunk.write_16(value, line);
     }
 
-    fn write_oprand_u32(self: *Generator, value: u32) !void {
-        try self.curr_chunk.write_u32(value);
+    fn write_oprand_u32(self: *Generator, value: u32, line: usize) !void {
+        try self.curr_chunk.write_u32(value, line);
     }
 
     pub fn emit_return(self: *Generator, line: usize) !void {
@@ -43,10 +42,10 @@ pub const Generator = struct {
 
         if (size < std.math.maxInt(u8)) {
             try self.write_opcode(chunk.OpCode.LOAD_CONST, line);
-            try self.write_oprand_u8(@intCast(u8, size));
+            try self.write_oprand_u8(@intCast(u8, size), line);
         } else {
             try self.write_opcode(chunk.OpCode.LOAD_CONST_LONG, line);
-            try self.write_oprand_u32(@intCast(u32, size));
+            try self.write_oprand_u32(@intCast(u32, size), line);
         }
     }
 
