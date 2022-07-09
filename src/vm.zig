@@ -52,11 +52,11 @@ pub const Vm = struct {
         return ck;
     }
 
-    fn read_constant(self: *Vm) Value {
+    fn read_constant(self: *Vm) *Value {
         return self.chunk.?.constants.items[self.read_u8()];
     }
 
-    fn read_constant_long(self: *Vm) Value {
+    fn read_constant_long(self: *Vm) *Value {
         return self.chunk.?.constants.items[self.read_u32()];
     }
 
@@ -64,44 +64,60 @@ pub const Vm = struct {
         self.stack.clearAndFree();
     }
 
-    fn push(self: *Vm, val: Value) !void {
+    fn push(self: *Vm, val: *Value) !void {
         try self.stack.append(val);
     }
 
-    fn pop(self: *Vm) Value {
+    fn pop(self: *Vm) *Value {
         return self.stack.pop();
+    }
+
+    fn peek(self: *Vm, dist: usize) *Value {
+        return self.stack.items[self.stack.items.len - 1 - dist];
+    }
+
+    fn runtime_error(self: *Vm, comptime fmt: []const u8, args: anytype) void {
+        print(fmt, args);
+        print("at {d}\n", .{self.chunk.?.lines.items[self.ip]});
     }
 
     fn binary_op(comptime op: u8) fn (*Vm) anyerror!void {
         return struct {
             pub fn binary(this: *Vm) anyerror!void {
-                var a = this.pop();
-                var b = this.pop();
+                if (!this.peek(0).is(.Number) or !this.peek(1).is(.Number)) {
+                    return this.runtime_error("Oprands must be numbers", .{});
+                }
+
+                var a = this.pop().as(.Number);
+                var b = this.pop().as(.Number);
 
                 switch (op) {
-                    '+' => try this.push(b + a),
-                    '-' => try this.push(b - a),
-                    '*' => try this.push(b * a),
-                    '/' => try this.push(b / a),
-                    else => {},
+                    '+' => try this.push(try Value.number_new(this.alloc, b + a)),
+                    '-' => try this.push(try Value.number_new(this.alloc, b - a)),
+                    '*' => try this.push(try Value.number_new(this.alloc, b * a)),
+                    '/' => try this.push(try Value.number_new(this.alloc, b / a)),
+                    else => unreachable,
                 }
+
+                try this.allocated.append(this.peek(0));
             }
         }.binary;
     }
 
-    fn run(self: *Vm) !void {
+    pub fn run(self: *Vm, cnk: *Chunk) !void {
+        self.chunk = cnk;
+        print("\n\n-----bytecode Trace-----\n\n", .{});
         while (true) {
             if (trace) {
                 _ = try self.chunk.?.disasemble_ins(self.ip);
             }
 
             var ins = @intToEnum(Opcode, self.read_u8());
-            var line = self.read_u32();
-            _ = line;
 
             try switch (ins) {
                 .RETURN => {
-                    break;
+                    self.peek(0).print_value();
+                    return;
                 },
                 .LOAD_CONST => {
                     var constant = self.read_constant();
@@ -111,13 +127,19 @@ pub const Vm = struct {
                     var constant = self.read_constant_long();
                     try self.push(constant);
                 },
-                .NEGATE => {
-                    try self.push(-self.pop());
-                },
+
                 .ADD => Vm.binary_op('+')(self),
                 .SUB => Vm.binary_op('-')(self),
                 .MULTIPLY => Vm.binary_op('*')(self),
                 .DIVIDE => Vm.binary_op('/')(self),
+                .NEGATE => {
+                    if (!self.peek(0).is(.Number)) {
+                        return self.runtime_error("Oprand must be a number", .{});
+                    }
+
+                    try self.push(try Value.number_new(self.alloc, -self.pop().as(.Number)));
+                    try self.allocated.append(self.peek(0));
+                },
             };
         }
     }
