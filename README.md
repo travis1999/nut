@@ -10,8 +10,8 @@ Nut is a programming language is based on the book
 No libraries are required but the interpreter only runs on python 3.9+.
 
 ### Usage
-`python3 src/nut.py <file>`
+`python3 pynut/nut.py <file>`
 
 eg
-`python3 src/nut.py src/test.nut`
+`python pynut/nut.py src/examples/test.nut `
     
