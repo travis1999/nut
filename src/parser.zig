@@ -133,8 +133,8 @@ pub const Parser = struct {
         return null;
     }
 
-    fn return_(self: *Parser) void {
-        self.generator.emit_return(self.current.?.line);
+    fn return_(self: *Parser) !void {
+        try self.generator.emit_return(self.current.?.line);
     }
 
     fn number(self: *Parser) !void {
@@ -151,7 +151,6 @@ pub const Parser = struct {
 
     fn unary(self: *Parser) !void {
         var previous_type = self.previous.?.t_type;
-        try self.expression();
         try self.parse_precedence(.UNARY);
 
         try switch (previous_type) {
@@ -205,5 +204,6 @@ pub const Parser = struct {
     pub fn parse(self: *Parser) !void {
         try self.advance();
         try self.expression();
+        try self.return_();
     }
 };
