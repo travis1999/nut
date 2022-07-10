@@ -153,7 +153,6 @@ pub const Parser = struct {
     }
 
     fn number(self: *Parser) !void {
-        print("Float is {s}, {} {}\n", .{self.current.?.value, self.current.?, self.previous.?});
         var value = try std.fmt.parseFloat(f64, self.previous.?.value);
         var val = try Value.number_new(self.allocator, value);
         try self.generator.emit_constant(val, self.previous.?.line);
