@@ -15,7 +15,15 @@ pub const NutString = struct {
         return new_nut_str;
     }
 
-    pub fn concat(alloc: Allocator, str1: []u8, str2: []u8) ![]u8{
+    pub fn take(alloc: Allocator, str: []u8) !*NutString {
+        var new_nut_str = try alloc.create(NutString);
+        errdefer new_nut_str.deinit(alloc);
+
+        new_nut_str.src = str;
+        return new_nut_str;
+    }
+
+    pub fn concat_str(alloc: Allocator, str1: []u8, str2: []u8) ![]u8{
         var new_str = try alloc.alloc(u8, str1.len + str2.len);
         errdefer alloc.free(new_str);
 
@@ -23,6 +31,12 @@ pub const NutString = struct {
         std.mem.copy(u8, new_str[str1.len..], str2);
 
         return new_str;
+    }
+
+    pub fn concat(self: *NutString, alloc: Allocator, other: *NutString) !*NutString {
+        var new_nut_str = try NutString.take(alloc, try NutString.concat_str(alloc, self.src, other.src));
+        errdefer new_nut_str.deinit(alloc);
+        return new_nut_str;
     }
 
     pub fn is_equal(self: *NutString, other: *NutString) bool {
@@ -65,35 +79,64 @@ pub const Value = struct {
         return .{ .v_type = .Bool, .value = .{ .number = value } };
     }
 
-    pub fn number_new(allocator: Allocator, value: f64) !*Value {
+    pub fn value_new(allocator: Allocator, value: anytype) !*Value {
         var val = try allocator.create(Value);
         val.is_on_heap = true;
 
-        val.v_type = .Number;
-        val.value = .{ .number = value };
+        switch (@TypeOf(value)) {
+            f64, i64 => {
+                val.v_type = .Number;
+                val.value = .{ .number = value };
+            },
+            bool => {
+                val.v_type = .Bool;
+                val.value = .{ .boolean = value };
+            },
+            @TypeOf(null) => {
+                val.v_type = .Nil;
+            },
+            []u8 =>{
+                val.v_type = .String;
+                val.value = .{.string = try NutString.new(allocator, value) };
+                val.is_on_heap = true;
+            },
+            *NutString => {
+                val.v_type = .String;
+                val.value = .{.string = value };
+            },
+            else => @compileError("Can not coarse type to nut value"),
+        }
+
         return val;
+    }
+
+    pub fn number_new(allocator: Allocator, value: f64) !*Value {
+        return try value_new(allocator, value);
     }
 
     pub fn bool_new(allocator: Allocator, value: bool) !*Value {
-        var val = try allocator.create(Value);
-        val.is_on_heap = true;
-
-        val.v_type = .Bool;
-        val.value = .{ .number = value };
-        return val;
+        return try value_new(allocator, value);
     }
 
     pub fn deinit(self: *Value, allocator: Allocator) void {
+        switch (self.v_type) {
+            .String => self.value.string.deinit(allocator),
+            else => {},
+        }
         if (self.is_on_heap) allocator.destroy(self);
     }
 
     pub fn as(self: *Value, comptime _type: ValueType) switch (_type) {
         .Bool => bool,
         .Number => f64,
+        .Nil => null,
+        .String => *NutString,
     } {
         return switch (_type) {
             .Bool => self.value.boolean,
             .Number => self.value.number,
+            .Nil => null,
+            .String => self.value.string,
         };
     }
 
