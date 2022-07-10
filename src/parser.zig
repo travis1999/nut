@@ -38,47 +38,48 @@ pub const Parser = struct {
     generator: *Generator,
     current: ?Token = null,
     previous: ?Token = null,
+
     rules: [40]ParseRule = [_]ParseRule{
-        .{ .prefix=grouping, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=unary, .infix=binary, .precedence=.TERM },
-        .{ .prefix=null, .infix=binary, .precedence=.TERM },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=binary, .precedence=.FACTOR },
-        .{ .prefix=null, .infix=binary, .precedence=.FACTOR },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=number, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
-        .{ .prefix=null, .infix=null, .precedence=.NONE },
+        .{ .prefix = grouping, .infix = null, .precedence = .NONE }, // LEFT_PAREN]
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // RIGHT_PAREN
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // LEFT_BRACE
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // RIGHT_BRACE
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // COMMA
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // DOT
+        .{ .prefix = unary, .infix = binary, .precedence = .TERM }, // MINUS
+        .{ .prefix = null, .infix = binary, .precedence = .TERM }, // PLUS
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // SEMICOLON
+        .{ .prefix = null, .infix = binary, .precedence = .FACTOR }, // SLASH
+        .{ .prefix = null, .infix = binary, .precedence = .FACTOR }, // STAR
+        .{ .prefix = unary, .infix = null, .precedence = .NONE }, // BANG
+        .{ .prefix = null, .infix = binary, .precedence = .EQUALITY }, // BANG_EQUAL
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // EQUAL
+        .{ .prefix = null, .infix = binary, .precedence = .EQUALITY }, // EQUAL_EQUAL
+        .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // GREATER
+        .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // GREATER_EQUAL
+        .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // LESS
+        .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // LESS_EQUAL
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // IDENTIFIER
+        .{ .prefix = string, .infix = null, .precedence = .NONE }, // STRING
+        .{ .prefix = number, .infix = null, .precedence = .NONE }, // NUMBER
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // AND
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // CLASS
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // ELSE
+        .{ .prefix = literal, .infix = null, .precedence = .NONE }, // FALSE
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // FOR
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // FUN
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // IF
+        .{ .prefix = literal, .infix = null, .precedence = .NONE }, // NIL
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // OR
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // PRINT
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // RETURN
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // SUPER
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // THIS
+        .{ .prefix = literal, .infix = null, .precedence = .NONE }, // TRUE
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // VAR
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // WHILE
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // ERROR
+        .{ .prefix = null, .infix = null, .precedence = .NONE }, // EOF
     },
 
     pub fn init(allocator: Allocator, scan: *scanner.Scanner, gen: *Generator) Parser {
@@ -106,6 +107,20 @@ pub const Parser = struct {
 
     fn error_at_current(self: *Parser, message: []const u8) void {
         self.error_at(&self.current.?, message);
+    }
+
+    fn literal(self: *Parser) !void {
+        try switch (self.previous.?.t_type) {
+            .FALSE => self.generator.write_opcode(.FALSE, self.previous.?.line),
+            .NIL => self.generator.write_opcode(.NIL, self.previous.?.line),
+            .TRUE => self.generator.write_opcode(.TRUE, self.previous.?.line),
+            else => unreachable
+        };
+    }
+
+    fn string(self: *Parser) !void {
+        var tok = self.previous.?;
+        try self.generator.emit_constant(try Value.value_new(self.allocator, tok.value), tok.line);
     }
 
     fn error_at(self: *Parser, token: *Token, message: []const u8) void {
@@ -155,12 +170,22 @@ pub const Parser = struct {
 
         try switch (previous_type) {
             .MINUS => self.generator.write_opcode(chunk.OpCode.NEGATE, self.current.?.line),
+            .BANG => self.generator.write_opcode(chunk.OpCode.NOT, self.current.?.line),
             else => unreachable,
         };
     }
 
     fn expression(self: *Parser) !void {
         try self.parse_precedence(.ASSIGNMENT);
+    }
+
+    fn emit_byte(self: *Parser, opcode: chunk.OpCode) !void{
+        try self.generator.write_opcode(opcode, self.previous.?.line);
+    }
+
+    fn emit_bytes(self: *Parser, op0: chunk.OpCode, op1: chunk.OpCode) !void{
+        try self.emit_byte(op0);
+        try self.emit_byte(op1);
     }
 
     fn binary(self: *Parser) !void {
@@ -170,12 +195,19 @@ pub const Parser = struct {
         try self.parse_precedence(@intToEnum(Precedence, @enumToInt(rule.precedence) + 1));
 
         try switch (_type) {
-            .PLUS => self.generator.write_opcode(chunk.OpCode.ADD, self.previous.?.line),
-            .MINUS => self.generator.write_opcode(chunk.OpCode.SUB, self.previous.?.line),
-            .STAR => self.generator.write_opcode(chunk.OpCode.MULTIPLY, self.previous.?.line),
-            .SLASH => self.generator.write_opcode(chunk.OpCode.DIVIDE, self.previous.?.line),
+            .BANG_EQUAL => self.emit_bytes(.EQUAL, .NOT),
+            .EQUAL_EQUAL => self.emit_byte(.EQUAL),
+            .GREATER => self.emit_byte(.GREATER),
+            .GREATER_EQUAL => self.emit_bytes(.LESS, .NOT),
+            .LESS => self.emit_byte(.LESS),
+            .LESS_EQUAL => self.emit_bytes(.GREATER, .NOT),
+            .PLUS => self.emit_byte(.ADD),
+            .MINUS => self.emit_byte(.SUB),
+            .STAR => self.emit_byte(.MULTIPLY),
+            .SLASH => self.emit_byte(.DIVIDE),
             else => unreachable,
         };
+
     }
 
     fn get_rule(self: *Parser, _type: TokenType) ParseRule {

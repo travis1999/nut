@@ -2,6 +2,7 @@ const std = @import("std");
 const chunk = @import("chunk.zig");
 const value = @import("value.zig");
 
+const String = value.NutString;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const Chunk = chunk.Chunk;
@@ -84,6 +85,26 @@ pub const Vm = struct {
     fn binary_op(comptime op: u8) fn (*Vm) anyerror!void {
         return struct {
             pub fn binary(this: *Vm) anyerror!void {
+                if (op == '+') {
+                    if (this.peek(0).is(.String) and this.peek(1).is(.String)) {
+                        var a = this.pop().as(.String).src;
+                        var b = this.pop().as(.String).src;
+                        var concat = try String.concat(this.alloc, a, b);
+                        
+                        try this.push(try this.new_value(concat));
+                        
+                        //Fixme: allow strings to 'take' allocated memory
+                        this.alloc.free(concat);
+
+                    } else if (this.peek(0).is(.Number) and this.peek(1).is(.Number)) {
+                        try this.push(try this.new_value(this.pop().as(.Number) + this.pop().as(.Number)));
+                    } else {
+                        this.runtime_error("Operands must be two numbers or two strings.", .{});
+                    }
+
+                    return;
+                }
+
                 if (!this.peek(0).is(.Number) or !this.peek(1).is(.Number)) {
                     return this.runtime_error("Oprands must be numbers", .{});
                 }
@@ -92,16 +113,26 @@ pub const Vm = struct {
                 var b = this.pop().as(.Number);
 
                 switch (op) {
-                    '+' => try this.push(try Value.number_new(this.alloc, b + a)),
-                    '-' => try this.push(try Value.number_new(this.alloc, b - a)),
-                    '*' => try this.push(try Value.number_new(this.alloc, b * a)),
-                    '/' => try this.push(try Value.number_new(this.alloc, b / a)),
+                    '-' => try this.push(try this.new_value(b - a)),
+                    '*' => try this.push(try this.new_value(b * a)),
+                    '/' => try this.push(try this.new_value(b / a)),
+                    '>' => try this.push(try this.new_value(a > b)),
+                    '<' => try this.push(try this.new_value(a < b)),
+
                     else => unreachable,
                 }
-
-                try this.allocated.append(this.peek(0));
             }
         }.binary;
+    }
+
+    pub fn new_value(self: *Vm, n_value: anytype) !*Value {
+        var val = try Value.value_new(self.alloc, n_value);
+        try self.allocated.append(val);
+        return val;
+    }
+
+    pub fn is_false(_: *Vm, val: *Value) bool {
+        return val.is(.Nil) or (val.is(.Bool) and !val.as(.Bool));
     }
 
     pub fn run(self: *Vm, cnk: *Chunk) !void {
@@ -116,7 +147,7 @@ pub const Vm = struct {
 
             try switch (ins) {
                 .RETURN => {
-                    self.peek(0).print_value();
+                    if (self.stack.items.len > 0) self.peek(0).print_value();
                     return;
                 },
                 .LOAD_CONST => {
@@ -132,14 +163,19 @@ pub const Vm = struct {
                 .SUB => Vm.binary_op('-')(self),
                 .MULTIPLY => Vm.binary_op('*')(self),
                 .DIVIDE => Vm.binary_op('/')(self),
+                .GREATER => Vm.binary_op('>')(self),
+                .LESS => Vm.binary_op('<')(self),
                 .NEGATE => {
                     if (!self.peek(0).is(.Number)) {
                         return self.runtime_error("Oprand must be a number", .{});
                     }
-
-                    try self.push(try Value.number_new(self.alloc, -self.pop().as(.Number)));
-                    try self.allocated.append(self.peek(0));
+                    try self.push(try self.new_value(-self.pop().as(.Number)));
                 },
+                .NIL => try self.push(try self.new_value(null)),
+                .TRUE => try self.push(try self.new_value(true)),
+                .FALSE => try self.push(try self.new_value(false)),
+                .NOT => try self.push(try self.new_value(self.is_false(self.pop()))),
+                .EQUAL => try self.push(try self.new_value(self.pop().is_equal(self.pop()))),
             };
         }
     }

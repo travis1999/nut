@@ -55,26 +55,29 @@ pub const TokenType = enum {
     EOF,
 };
 
-const Map = std.ComptimeStringMap(TokenType, .{
-    .{
-        "and",    .AND,
-        "class",  .CLASS,
-        "else",   .ELSE,
-        "false",  .FALSE,
-        "for",    .FOR,
-        "fun",    .FUN,
-        "if",     .IF,
-        "nil",    .NIL,
-        "or",     .OR,
-        "print",  .PRINT,
-        "return", .RETURN,
-        "super",  .SUPER,
-        "this",   .THIS,
-        "true",   .TRUE,
-        "var",    .VAR,
-        "while",  .WHILE,
-    },
+const map = std.ComptimeStringMap(TokenType, .{
+        .{"and",    .AND},
+        .{"class",  .CLASS},
+        .{"else",   .ELSE},
+        .{"false",  .FALSE},
+        .{"for",    .FOR},
+        .{"fun",    .FUN},
+        .{"if",     .IF},
+        .{"nil",    .NIL},
+        .{"or",     .OR},
+        .{"print",  .PRINT},
+        .{"return", .RETURN},
+        .{"super",  .SUPER},
+        .{"this",   .THIS},
+        .{"true",   .TRUE},
+        .{"var",    .VAR},
+        .{"while",  .WHILE},
 });
+
+
+test "test map" {
+    print("why {}\n", .{map.get("class")});
+}
 
 pub const Token = struct { t_type: TokenType, value: []u8, line: usize };
 

@@ -16,6 +16,13 @@ pub const OpCode = enum {
     MULTIPLY,
     DIVIDE,
     NEGATE,
+    NIL,
+    TRUE,
+    FALSE,
+    NOT,
+    EQUAL,
+    GREATER,
+    LESS
 };
 
 pub const Chunk = struct {
