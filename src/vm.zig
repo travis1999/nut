@@ -79,7 +79,7 @@ pub const Vm = struct {
 
     fn runtime_error(self: *Vm, comptime fmt: []const u8, args: anytype) void {
         print(fmt, args);
-        print("at {d}\n", .{self.chunk.?.lines.items[self.ip]});
+        print("\nat {d}\n", .{self.chunk.?.lines.items[self.ip]});
     }
 
     fn binary_op(comptime op: u8) fn (*Vm) anyerror!void {
@@ -87,14 +87,14 @@ pub const Vm = struct {
             pub fn binary(this: *Vm) anyerror!void {
                 if (op == '+') {
                     if (this.peek(0).is(.String) and this.peek(1).is(.String)) {
-                        var a = this.pop().as(.String).src;
-                        var b = this.pop().as(.String).src;
-                        var concat = try String.concat(this.alloc, a, b);
+                        var a = this.pop().as(.String);
+                        var b = this.pop().as(.String);
+                        var concat = try a.concat(this.alloc, b);
                         
                         try this.push(try this.new_value(concat));
                         
                         //Fixme: allow strings to 'take' allocated memory
-                        this.alloc.free(concat);
+                        // this.alloc.free(concat);
 
                     } else if (this.peek(0).is(.Number) and this.peek(1).is(.Number)) {
                         try this.push(try this.new_value(this.pop().as(.Number) + this.pop().as(.Number)));
