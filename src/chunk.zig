@@ -74,12 +74,6 @@ pub const Chunk = struct {
     pub fn write_u32(self: *Chunk, _value: u32, line: usize) !void {
         try self.lines.append(line);
 
-        //split into four u8s
-        // try self.code.append(_value >> 24);
-        // try self.code.append(_value >> 16);
-        // try self.code.append(_value >> 8);
-        // try self.code.append(_value & 0xFF);
-
         var bytes = [4]u32{ _value >> 24, _value >> 16, _value >> 8, _value & 0xFF };
 
         for (bytes) |b| {
@@ -129,12 +123,12 @@ pub const Chunk = struct {
             .LOAD_CONST => {
                 var it = self.code.items[of_tmp];
                 of_tmp += 1;
-                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value.number });
+                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value });
             },
             .LOAD_CONST_LONG => {
                 var it = self.read_u32(of_tmp);
                 of_tmp += 4;
-                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value.number });
+                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value });
             },
 
             else => {},
