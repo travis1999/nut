@@ -161,8 +161,8 @@ pub const Scanner = struct {
     }
 
     fn identifier_type(self: *Scanner) TokenType {
-        if (Map.has(self.source[self.start..self.current])) {
-            return Map.get(self.source[self.start..self.current]).?;
+        if (map.has(self.source[self.start..self.current])) {
+            return map.get(self.source[self.start..self.current]).?;
         }
         return .IDENTIFIER;
     }
