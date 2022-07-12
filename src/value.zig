@@ -163,6 +163,26 @@ pub const Value = struct {
             .String => std.debug.print("{s}", .{self.value.string}),
         }
     }
+
+    fn format(self: *Value, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
+        _ = self;
+        _ = fmt;
+        _ = options;
+
+        switch (self.t_type) {
+            .Bool => writer.writeAll(self.value.boolean),
+            else => writer.WriteAll("Nut Value"),
+        }
+    }
+
+    pub fn print_this(self: *Value) void {
+        switch (self.v_type) {
+            .Bool => std.debug.print("{}", .{self.value.boolean}),
+            .Nil => std.debug.print("Nil", .{}),
+            .Number => std.debug.print("{d}", .{self.value.number}),
+            .String => std.debug.print("{s}", .{self.value.string.src}),
+        }
+    }
 };
 
 pub const ValueArray = ArrayList(*Value);
