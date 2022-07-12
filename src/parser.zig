@@ -12,6 +12,10 @@ const print = std.debug.print;
 const generator = @import("generator.zig");
 const Generator = generator.Generator;
 
+const ParserError = error{
+    SyntaxError,
+};
+
 const Precedence = enum {
     NONE,
     ASSIGNMENT, // =
@@ -90,11 +94,11 @@ pub const Parser = struct {
         };
     }
 
-    fn advance(self: *Parser) !void {
+    fn advance(self: *Parser) void {
         self.previous = self.current;
 
         while (true) {
-            self.current = try self.scanner.scan_token();
+            self.current = self.scanner.scan_token();
 
             if (self.current) |current| {
                 if (current.t_type != TokenType.ERROR) {
@@ -114,38 +118,38 @@ pub const Parser = struct {
             .FALSE => self.generator.write_opcode(.FALSE, self.previous.?.line),
             .NIL => self.generator.write_opcode(.NIL, self.previous.?.line),
             .TRUE => self.generator.write_opcode(.TRUE, self.previous.?.line),
-            else => unreachable
+            else => unreachable,
         };
     }
 
     fn string(self: *Parser) !void {
         var tok = self.previous.?;
-        try self.generator.emit_constant(try Value.value_new(self.allocator, tok.value), tok.line);
+        try self.generator.emit_constant(Value.value_new(self.allocator, tok.value[1 .. tok.value.len - 1]), tok.line);
     }
 
     fn error_at(self: *Parser, token: *Token, message: []const u8) void {
-        self.panic_mode = true;
-
         if (self.panic_mode) return;
-        print("[line {d}] Error: ", .{token.line});
+        print("[line {d}] Error ", .{token.line});
 
         if (token.t_type == TokenType.EOF) {
-            print(" at end", .{});
+            print("at EOF", .{});
         } else {
-            print(" at '{s}'", .{token.value});
+            print("at '{s}'", .{token.value});
         }
 
-        print(": {s}\n", .{message});
+        print("{s} \n", .{message});
+        self.panic_mode = true;
+
         self.haserror = true;
     }
 
     fn consume(self: *Parser, t_type: TokenType, message: []const u8) !?*Token {
         if (self.current.?.t_type == t_type) {
-            try self.advance();
+            self.advance();
             return &self.previous.?;
         }
         self.error_at_current(message);
-        return null;
+        return ParserError.SyntaxError;
     }
 
     fn return_(self: *Parser) !void {
@@ -153,8 +157,13 @@ pub const Parser = struct {
     }
 
     fn number(self: *Parser) !void {
-        var value = try std.fmt.parseFloat(f64, self.previous.?.value);
-        var val = try Value.number_new(self.allocator, value);
+        var value = std.fmt.parseFloat(f64, self.previous.?.value) catch {
+            // parse float should never fail as the string is validated while
+            // scanning
+            unreachable;
+        };
+
+        var val = Value.number_new(self.allocator, value);
         try self.generator.emit_constant(val, self.previous.?.line);
     }
 
@@ -178,11 +187,11 @@ pub const Parser = struct {
         try self.parse_precedence(.ASSIGNMENT);
     }
 
-    fn emit_byte(self: *Parser, opcode: chunk.OpCode) !void{
+    fn emit_byte(self: *Parser, opcode: chunk.OpCode) !void {
         try self.generator.write_opcode(opcode, self.previous.?.line);
     }
 
-    fn emit_bytes(self: *Parser, op0: chunk.OpCode, op1: chunk.OpCode) !void{
+    fn emit_bytes(self: *Parser, op0: chunk.OpCode, op1: chunk.OpCode) !void {
         try self.emit_byte(op0);
         try self.emit_byte(op1);
     }
@@ -206,7 +215,6 @@ pub const Parser = struct {
             .SLASH => self.emit_byte(.DIVIDE),
             else => unreachable,
         };
-
     }
 
     fn get_rule(self: *Parser, _type: TokenType) ParseRule {
@@ -214,14 +222,14 @@ pub const Parser = struct {
     }
 
     fn parse_precedence(self: *Parser, prec: Precedence) !void {
-        try self.advance();
+        self.advance();
 
         var prefix_rule = self.get_rule(self.previous.?.t_type).prefix;
         if (prefix_rule) |rule| {
             try rule(self);
 
             while (@enumToInt(prec) <= @enumToInt(self.get_rule(self.current.?.t_type).precedence)) {
-                try self.advance();
+                self.advance();
                 var infixrule = self.get_rule(self.previous.?.t_type).infix;
                 if (infixrule) |rule_2| {
                     try rule_2(self);
@@ -232,9 +240,49 @@ pub const Parser = struct {
         }
     }
 
-    pub fn parse(self: *Parser) !void {
-        try self.advance();
+    fn check(self: *Parser, t_type: TokenType) bool {
+        return self.current.?.t_type == t_type;
+    }
+
+    fn match(self: *Parser, t_type: TokenType) !bool {
+        if (self.check(t_type)) {
+            self.advance();
+            return true;
+        }
+        return false;
+    }
+
+    fn declaration(self: *Parser) !void {
+        try self.statement();
+    }
+
+    fn statement(self: *Parser) !void {
+        if (try self.match(TokenType.PRINT)) {
+            try self.print_statement();
+        } else {
+            try self.expression_statement();
+        }
+    }
+
+    fn expression_statement(self: *Parser) !void {
         try self.expression();
+        _ = try self.consume(TokenType.SEMICOLON, "Expected ';' after expression");
+        try self.emit_byte(chunk.OpCode.POP);
+    }
+
+    fn print_statement(self: *Parser) !void {
+        try self.expression();
+        _ = try self.consume(TokenType.SEMICOLON, "Expect ';' after value");
+        try self.emit_byte(chunk.OpCode.PRINT);
+    }
+
+    pub fn parse(self: *Parser) !void {
+        self.advance();
+
+        while (!try self.match(.EOF)) {
+            try self.declaration();
+        }
+
         try self.return_();
     }
 };
