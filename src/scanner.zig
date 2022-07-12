@@ -56,24 +56,23 @@ pub const TokenType = enum {
 };
 
 const map = std.ComptimeStringMap(TokenType, .{
-        .{"and",    .AND},
-        .{"class",  .CLASS},
-        .{"else",   .ELSE},
-        .{"false",  .FALSE},
-        .{"for",    .FOR},
-        .{"fun",    .FUN},
-        .{"if",     .IF},
-        .{"nil",    .NIL},
-        .{"or",     .OR},
-        .{"print",  .PRINT},
-        .{"return", .RETURN},
-        .{"super",  .SUPER},
-        .{"this",   .THIS},
-        .{"true",   .TRUE},
-        .{"var",    .VAR},
-        .{"while",  .WHILE},
+    .{ "and", .AND },
+    .{ "class", .CLASS },
+    .{ "else", .ELSE },
+    .{ "false", .FALSE },
+    .{ "for", .FOR },
+    .{ "fun", .FUN },
+    .{ "if", .IF },
+    .{ "nil", .NIL },
+    .{ "or", .OR },
+    .{ "print", .PRINT },
+    .{ "return", .RETURN },
+    .{ "super", .SUPER },
+    .{ "this", .THIS },
+    .{ "true", .TRUE },
+    .{ "var", .VAR },
+    .{ "while", .WHILE },
 });
-
 
 test "test map" {
     print("why {}\n", .{map.get("class")});
@@ -91,8 +90,11 @@ pub const Scanner = struct {
         return Scanner{ .source = source };
     }
 
-    pub fn scan_token(self: *Scanner) !Token {
-        try self.skip_whitespace();
+    pub fn scan_token(self: *Scanner) Token {
+        self.skip_whitespace() catch {
+            self.token_error("bad token");
+            return self.error_token();
+        };
 
         self.start = self.current;
 
@@ -122,13 +124,16 @@ pub const Scanner = struct {
             '<' => return self.two_char('=', .LESS_EQUAL, .LESS),
             '>' => return self.two_char('=', .GREATER_EQUAL, .GREATER),
             '"' => return self.string(),
-            else => {
-                print("invalid character is {c}\n", .{c});
-                return ScannerError.InvalidCharacter;
-            },
+            else => self.token_error("Unexpected character"),
         }
 
-        return ScannerError.UnexpectedCharacter;
+        self.token_error("Unexpected character");
+        return self.error_token();
+    }
+
+    fn token_error(self: *Scanner, message: []const u8) void {
+        print("Error at line: {}, {s}, '{}'", .{ self.line, message, self.source[self.current] });
+        std.os.exit(98);
     }
 
     fn two_char(self: *Scanner, expected: u8, t_exp: TokenType, t_found: TokenType) Token {
@@ -138,14 +143,15 @@ pub const Scanner = struct {
         return self.make_token(t_found);
     }
 
-    fn string(self: *Scanner) !Token {
+    fn string(self: *Scanner) Token {
         while (self.peek() != '"' and !self.is_at_end()) {
             if (self.peek() == '\n') self.line += 1;
             _ = self.advance();
         }
 
         if (self.is_at_end()) {
-            return ScannerError.UnterminatedString;
+            self.token_error("Unterminated string");
+            return self.error_token();
         }
 
         _ = self.advance();
@@ -167,7 +173,7 @@ pub const Scanner = struct {
         return .IDENTIFIER;
     }
 
-    fn identifier(self: *Scanner) !Token {
+    fn identifier(self: *Scanner) Token {
         while (self.is_alpha(self.peek()) or self.is_digit(self.peek())) {
             _ = self.advance();
         }
@@ -176,8 +182,7 @@ pub const Scanner = struct {
         return self.make_token(t_type);
     }
 
-    fn number(self: *Scanner) !Token {
-        print("Building number start is {}..{}\n", .{ self.start, self.current });
+    fn number(self: *Scanner) Token {
         while (self.is_digit(self.peek())) {
             _ = self.advance();
         }
@@ -207,8 +212,7 @@ pub const Scanner = struct {
                 '\\' => {
                     if (self.peek_next() == '\\') {
                         while (!self.is_at_end() and self.peek() != '\n') _ = self.advance();
-                    }
-                    else {
+                    } else {
                         return ScannerError.UnexpectedCharacter;
                     }
                 },
@@ -238,12 +242,11 @@ pub const Scanner = struct {
     }
 
     fn make_token(self: *Scanner, t_type: TokenType) Token {
-        print("making token {} start is {} {} '{s}'\n", .{ t_type, self.start, self.current, self.source[self.start..self.current] });
         return Token{ .t_type = t_type, .value = self.source[self.start..self.current], .line = self.line };
     }
 
-    fn error_token(self: *Scanner, t_type: TokenType, err: []const u8) Token {
-        return Token{ .t_type = t_type, .value = err, .line = self.line };
+    fn error_token(self: *Scanner) Token {
+        return Token{ .t_type = TokenType.ERROR, .value = "", .line = self.line };
     }
 
     fn is_at_end(self: *Scanner) bool {
