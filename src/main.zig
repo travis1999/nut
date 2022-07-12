@@ -71,9 +71,7 @@ const Nut = struct {
         var cmp = compiler.Compiler.init(self.allocator);
         var cnk = try cmp.compile(source);
         errdefer cnk.deinit();
-
         try self.vm_.run(cnk);
-
         cnk.deinit();
     }
 };
@@ -91,5 +89,7 @@ pub fn main() anyerror!void {
     var nut = try Nut.init(allocator);
     defer nut.deinit();
 
-    try nut.main();
+    nut.main() catch |err| {
+        std.debug.print("Program exited with {}\n", .{err});
+    };
 }
