@@ -7,7 +7,7 @@ const value = @import("value.zig");
 const Value = value.Value;
 const ValueArray = value.ValueArray;
 
-pub const OpCode = enum {
+pub const OpCode = enum { 
     RETURN,
     LOAD_CONST,
     LOAD_CONST_LONG,
@@ -22,7 +22,9 @@ pub const OpCode = enum {
     NOT,
     EQUAL,
     GREATER,
-    LESS
+    LESS,
+    PRINT,
+    POP 
 };
 
 pub const Chunk = struct {
