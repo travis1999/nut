@@ -119,31 +119,34 @@ pub const Chunk = struct {
         var line = self.lines.items[offset];
 
         //line(4)//op(1)//oprand(1)
-        var format: [255]u8 = std.mem.zeroes([255]u8);
+
+        if (line == self.pre_line) {
+            print("{d:0>4} {s:>8} {}", .{ offset, "|", op});
+        } else {
+            print("{d:0>4} {d:>8} {}", .{ offset, line, op});
+
+            self.pre_line = line;
+        }
 
         switch (op) {
             .LOAD_CONST => {
                 var it = self.code.items[of_tmp];
                 of_tmp += 1;
-                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value });
+                print("{d:>6} '", .{it});
+                self.constants.items[it].print_this();
+                print("'", .{});
             },
             .LOAD_CONST_LONG => {
                 var it = self.read_u32(of_tmp);
                 of_tmp += 4;
-                _ = try std.fmt.bufPrint(format[0..], "{d:>6} '{d}'", .{ it, self.constants.items[it].value });
+                print("{d:>6} '", .{it});
+                self.constants.items[it].print_this();
+                print("'", .{});
             },
 
             else => {},
         }
-
-        if (line == self.pre_line) {
-            print("{d:0>4} {s:>8} {} {s}\n", .{ offset, "|", op, format });
-        } else {
-            print("{d:0>4} {d:>8} {} {s}\n", .{ offset, line, op, format });
-
-            self.pre_line = line;
-        }
-
+        print("\n", .{});
         return of_tmp;
     }
 
