@@ -10,6 +10,11 @@ const Mode = @import("common.zig").Mode;
 
 const print = std.debug.print;
 
+
+pub const CompilerError = error {
+    ParsingError
+};
+
 pub const Compiler = struct {
     allocator: Allocator,
 
