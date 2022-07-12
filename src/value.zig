@@ -7,25 +7,28 @@ pub const ValueType = enum { Bool, Number, Nil, String };
 pub const NutString = struct {
     src: []u8,
 
-    pub fn new(alloc: Allocator, str: []u8) !*NutString {
-        var new_nut_str = try alloc.create(NutString);
-        errdefer new_nut_str.deinit(alloc);
+    pub fn new(alloc: Allocator, str: []u8) *NutString {
+        var new_nut_str = alloc.create(NutString) catch {
+            @panic("Out Of memory");
+        };
 
-        new_nut_str.src = try NutString.clone_str(alloc, str);
+        new_nut_str.src = NutString.clone_str(alloc, str);
         return new_nut_str;
     }
 
-    pub fn take(alloc: Allocator, str: []u8) !*NutString {
-        var new_nut_str = try alloc.create(NutString);
-        errdefer new_nut_str.deinit(alloc);
+    pub fn take(alloc: Allocator, str: []u8) *NutString {
+        var new_nut_str = alloc.create(NutString) catch {
+            @panic("Out Of memory");
+        };
 
         new_nut_str.src = str;
         return new_nut_str;
     }
 
-    pub fn concat_str(alloc: Allocator, str1: []u8, str2: []u8) ![]u8{
-        var new_str = try alloc.alloc(u8, str1.len + str2.len);
-        errdefer alloc.free(new_str);
+    pub fn concat_str(alloc: Allocator, str1: []u8, str2: []u8) []u8 {
+        var new_str = alloc.alloc(u8, str1.len + str2.len) catch {
+            @panic("Out Of memory");
+        };
 
         std.mem.copy(u8, new_str, str1);
         std.mem.copy(u8, new_str[str1.len..], str2);
@@ -33,8 +36,8 @@ pub const NutString = struct {
         return new_str;
     }
 
-    pub fn concat(self: *NutString, alloc: Allocator, other: *NutString) !*NutString {
-        var new_nut_str = try NutString.take(alloc, try NutString.concat_str(alloc, self.src, other.src));
+    pub fn concat(self: *NutString, alloc: Allocator, other: *NutString) *NutString {
+        var new_nut_str = NutString.take(alloc, NutString.concat_str(alloc, self.src, other.src));
         errdefer new_nut_str.deinit(alloc);
         return new_nut_str;
     }
@@ -43,16 +46,20 @@ pub const NutString = struct {
         return std.mem.eql(u8, self.src, other.src);
     }
 
-    pub fn clone_str(alloc: Allocator, str: []u8) ![]u8 {
-        var new_str = try alloc.alloc(u8, str.len);
-        errdefer alloc.free(new_str);
+    pub fn clone_str(alloc: Allocator, str: []u8) []u8 {
+        var new_str = alloc.alloc(u8, str.len) catch  {
+            @panic("Out Of memory");
+        };
 
         std.mem.copy(u8, new_str, str);
         return new_str;
     }
 
-    pub fn clone(self: *NutString, alloc: Allocator) !*NutString {
-        var new_nut_str = try alloc.create(NutString);
+    pub fn clone(self: *NutString, alloc: Allocator) *NutString {
+        var new_nut_str = try alloc.create(NutString) catch {
+            @panic("Out Of memory");
+        };
+
         errdefer new_nut_str.deinit();
 
         new_nut_str.src = NutString.clone_str(self.src);
@@ -60,7 +67,6 @@ pub const NutString = struct {
     }
 
     pub fn deinit(self: *NutString, alloc: Allocator) void {
-        std.debug.print("deinit nut string\n", .{});
         alloc.free(self.src);
         alloc.destroy(self);
     }
@@ -79,8 +85,10 @@ pub const Value = struct {
         return .{ .v_type = .Bool, .value = .{ .number = value } };
     }
 
-    pub fn value_new(allocator: Allocator, value: anytype) !*Value {
-        var val = try allocator.create(Value);
+    pub fn value_new(allocator: Allocator, value: anytype) *Value {
+        var val = allocator.create(Value)catch {
+            @panic("Out Of memory");
+        };
         val.is_on_heap = true;
 
         switch (@TypeOf(value)) {
@@ -95,14 +103,14 @@ pub const Value = struct {
             @TypeOf(null) => {
                 val.v_type = .Nil;
             },
-            []u8 =>{
+            []u8 => {
                 val.v_type = .String;
-                val.value = .{.string = try NutString.new(allocator, value) };
+                val.value = .{ .string = NutString.new(allocator, value) };
                 val.is_on_heap = true;
             },
             *NutString => {
                 val.v_type = .String;
-                val.value = .{.string = value };
+                val.value = .{ .string = value };
             },
             else => @compileError("Can not coarse type to nut value"),
         }
@@ -110,12 +118,12 @@ pub const Value = struct {
         return val;
     }
 
-    pub fn number_new(allocator: Allocator, value: f64) !*Value {
-        return try value_new(allocator, value);
+    pub fn number_new(allocator: Allocator, value: f64) *Value {
+        return value_new(allocator, value);
     }
 
-    pub fn bool_new(allocator: Allocator, value: bool) !*Value {
-        return try value_new(allocator, value);
+    pub fn bool_new(allocator: Allocator, value: bool) *Value {
+        return value_new(allocator, value);
     }
 
     pub fn deinit(self: *Value, allocator: Allocator) void {

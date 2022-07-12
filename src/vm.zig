@@ -12,6 +12,8 @@ const print = std.debug.print;
 
 const trace = true;
 
+const Error = error{OutOfMemory};
+
 pub const Vm = struct {
     chunk: ?*chunk.Chunk = null,
     ip: usize = 0,
@@ -84,24 +86,28 @@ pub const Vm = struct {
 
     fn binary_op(comptime op: u8) fn (*Vm) anyerror!void {
         return struct {
+            fn handle_add(this: *Vm) anyerror!void {
+                if (this.peek(0).is(.String) and this.peek(1).is(.String)) 
+                {
+                    var a = this.pop().as(.String);
+                    var b = this.pop().as(.String);
+                    var concat = a.concat(this.alloc, b);
+
+                    try this.push(this.new_value(concat));
+                } 
+                else if (this.peek(0).is(.Number) and this.peek(1).is(.Number))
+                {
+                    try this.push(this.new_value(this.pop().as(.Number) + this.pop().as(.Number)));
+                } 
+                else 
+                {
+                    this.runtime_error("Operands must be two numbers or two strings.", .{});
+                }
+            }
+
             pub fn binary(this: *Vm) anyerror!void {
                 if (op == '+') {
-                    if (this.peek(0).is(.String) and this.peek(1).is(.String)) {
-                        var a = this.pop().as(.String);
-                        var b = this.pop().as(.String);
-                        var concat = try a.concat(this.alloc, b);
-                        
-                        try this.push(try this.new_value(concat));
-                        
-                        //Fixme: allow strings to 'take' allocated memory
-                        // this.alloc.free(concat);
-
-                    } else if (this.peek(0).is(.Number) and this.peek(1).is(.Number)) {
-                        try this.push(try this.new_value(this.pop().as(.Number) + this.pop().as(.Number)));
-                    } else {
-                        this.runtime_error("Operands must be two numbers or two strings.", .{});
-                    }
-
+                    try @This().handle_add(this);
                     return;
                 }
 
@@ -113,11 +119,11 @@ pub const Vm = struct {
                 var b = this.pop().as(.Number);
 
                 switch (op) {
-                    '-' => try this.push(try this.new_value(b - a)),
-                    '*' => try this.push(try this.new_value(b * a)),
-                    '/' => try this.push(try this.new_value(b / a)),
-                    '>' => try this.push(try this.new_value(a > b)),
-                    '<' => try this.push(try this.new_value(a < b)),
+                    '-' => try this.push(this.new_value(b - a)),
+                    '*' => try this.push(this.new_value(b * a)),
+                    '/' => try this.push(this.new_value(b / a)),
+                    '>' => try this.push(this.new_value(a > b)),
+                    '<' => try this.push(this.new_value(a < b)),
 
                     else => unreachable,
                 }
@@ -125,9 +131,11 @@ pub const Vm = struct {
         }.binary;
     }
 
-    pub fn new_value(self: *Vm, n_value: anytype) !*Value {
-        var val = try Value.value_new(self.alloc, n_value);
-        try self.allocated.append(val);
+    pub fn new_value(self: *Vm, n_value: anytype) *Value {
+        var val = Value.value_new(self.alloc, n_value);
+        self.allocated.append(val) catch { 
+            @panic("out of memory");
+        };
         return val;
     }
 
@@ -147,8 +155,12 @@ pub const Vm = struct {
 
             try switch (ins) {
                 .RETURN => {
-                    if (self.stack.items.len > 0) self.peek(0).print_value();
+                    if (self.stack.items.len > 0) self.peek(0).print_this();
                     return;
+                },
+                .PRINT => {
+                    self.pop().print_this();
+                    print("\n", .{});
                 },
                 .LOAD_CONST => {
                     var constant = self.read_constant();
@@ -159,6 +171,7 @@ pub const Vm = struct {
                     try self.push(constant);
                 },
 
+                .POP => _ = self.pop(),
                 .ADD => Vm.binary_op('+')(self),
                 .SUB => Vm.binary_op('-')(self),
                 .MULTIPLY => Vm.binary_op('*')(self),
@@ -169,13 +182,13 @@ pub const Vm = struct {
                     if (!self.peek(0).is(.Number)) {
                         return self.runtime_error("Oprand must be a number", .{});
                     }
-                    try self.push(try self.new_value(-self.pop().as(.Number)));
+                    try self.push(self.new_value(-self.pop().as(.Number)));
                 },
-                .NIL => try self.push(try self.new_value(null)),
-                .TRUE => try self.push(try self.new_value(true)),
-                .FALSE => try self.push(try self.new_value(false)),
-                .NOT => try self.push(try self.new_value(self.is_false(self.pop()))),
-                .EQUAL => try self.push(try self.new_value(self.pop().is_equal(self.pop()))),
+                .NIL => try self.push(self.new_value(null)),
+                .TRUE => try self.push(self.new_value(true)),
+                .FALSE => try self.push(self.new_value(false)),
+                .NOT => try self.push(self.new_value(self.is_false(self.pop()))),
+                .EQUAL => try self.push(self.new_value(self.pop().is_equal(self.pop()))),
             };
         }
     }
