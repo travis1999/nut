@@ -120,6 +120,22 @@ pub const Chunk = struct {
         }
     }
 
+    fn dis_oprand_u8(self: *Chunk, of_tmp: *usize) void {
+        var it = self.code.items[of_tmp.*];
+        of_tmp.* += 1;
+        print("{d:>6} '", .{it});
+        self.constants.items[it].print_this();
+        print("'", .{});
+    }
+
+    fn dis_oprand_u32(self: *Chunk, of_tmp: *usize) void {
+        var it = self.read_u32(of_tmp.*);
+        of_tmp.* += 4;
+        print("{d:>6} '", .{it});
+        self.constants.items[it].print_this();
+        print("'", .{});
+    }
+
     pub fn disasemble_ins(self: *Chunk, offset: usize) usize {
         var of_tmp = offset;
 
@@ -138,21 +154,12 @@ pub const Chunk = struct {
         }
 
         switch (op) {
-            .LOAD_CONST => {
-                var it = self.code.items[of_tmp];
-                of_tmp += 1;
-                print("{d:>6} '", .{it});
-                self.constants.items[it].print_this();
-                print("'", .{});
+            .LOAD_CONST, .LOAD_GLOBAL, .SET_GLOBAL => {
+                self.dis_oprand_u8(&of_tmp);
             },
-            .LOAD_CONST_LONG => {
-                var it = self.read_u32(of_tmp);
-                of_tmp += 4;
-                print("{d:>6} '", .{it});
-                self.constants.items[it].print_this();
-                print("'", .{});
+            .LOAD_CONST_LONG, .LOAD_GLOBAL_LONG, .SET_GLOBAL_LONG => {
+                self.dis_oprand_u32(&of_tmp);
             },
-
             else => {},
         }
         print("\n", .{});
