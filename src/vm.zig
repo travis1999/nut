@@ -192,6 +192,8 @@ pub const Vm = struct {
                     var val = self.pop();
                     var name = self.pop();
                     try self.globals.put(name.as(.String).src, val);
+
+                    try self.push(val);
                 },
 
                 .DEFINE_GLOBAL => {
