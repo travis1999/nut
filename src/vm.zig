@@ -8,6 +8,7 @@ const ArrayList = std.ArrayList;
 const Chunk = chunk.Chunk;
 const Opcode = chunk.OpCode;
 const Value = value.Value;
+const Map = std.StringHashMap(*Value);
 const print = std.debug.print;
 
 const trace = true;
@@ -20,9 +21,10 @@ pub const Vm = struct {
     stack: ArrayList(*Value),
     alloc: Allocator,
     allocated: ArrayList(*Value),
+    globals: Map,
 
     pub fn init(alloc: Allocator) !Vm {
-        return Vm{ .alloc = alloc, .stack = ArrayList(*Value).init(alloc), .allocated = ArrayList(*Value).init(alloc) };
+        return Vm{ .alloc = alloc, .stack = ArrayList(*Value).init(alloc), .allocated = ArrayList(*Value).init(alloc), .globals = Map.init(alloc) };
     }
 
     pub fn deinit(self: *Vm) void {
@@ -34,6 +36,7 @@ pub const Vm = struct {
             allocated.deinit(self.alloc);
         }
 
+        self.globals.deinit();
         self.allocated.deinit();
         self.stack.deinit();
     }
@@ -87,20 +90,15 @@ pub const Vm = struct {
     fn binary_op(comptime op: u8) fn (*Vm) anyerror!void {
         return struct {
             fn handle_add(this: *Vm) anyerror!void {
-                if (this.peek(0).is(.String) and this.peek(1).is(.String)) 
-                {
+                if (this.peek(0).is(.String) and this.peek(1).is(.String)) {
                     var a = this.pop().as(.String);
                     var b = this.pop().as(.String);
-                    var concat = a.concat(this.alloc, b);
+                    var concat = b.concat(this.alloc, a);
 
                     try this.push(this.new_value(concat));
-                } 
-                else if (this.peek(0).is(.Number) and this.peek(1).is(.Number))
-                {
+                } else if (this.peek(0).is(.Number) and this.peek(1).is(.Number)) {
                     try this.push(this.new_value(this.pop().as(.Number) + this.pop().as(.Number)));
-                } 
-                else 
-                {
+                } else {
                     this.runtime_error("Operands must be two numbers or two strings.", .{});
                 }
             }
@@ -133,7 +131,7 @@ pub const Vm = struct {
 
     pub fn new_value(self: *Vm, n_value: anytype) *Value {
         var val = Value.value_new(self.alloc, n_value);
-        self.allocated.append(val) catch { 
+        self.allocated.append(val) catch {
             @panic("out of memory");
         };
         return val;
@@ -148,7 +146,7 @@ pub const Vm = struct {
         print("\n\n-----bytecode Trace-----\n\n", .{});
         while (true) {
             if (trace) {
-                _ = try self.chunk.?.disasemble_ins(self.ip);
+                _ = self.chunk.?.disasemble_ins(self.ip);
             }
 
             var ins = @intToEnum(Opcode, self.read_u8());
@@ -189,6 +187,20 @@ pub const Vm = struct {
                 .FALSE => try self.push(self.new_value(false)),
                 .NOT => try self.push(self.new_value(self.is_false(self.pop()))),
                 .EQUAL => try self.push(self.new_value(self.pop().is_equal(self.pop()))),
+
+                .DEFINE_GLOBAL_LONG => {
+                    var val = self.pop();
+                    var name = self.pop();
+                    try self.globals.put(name.as(.String).src, val);
+                },
+
+                .DEFINE_GLOBAL => {
+                    print("\n{s}\n", .{self.stack.items});
+
+                    var val = self.pop();
+                    var name = self.pop();
+                    try self.globals.put(name.as(.String).src, val);
+                },
             };
         }
     }

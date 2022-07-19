@@ -1,6 +1,7 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
+const AutoMap = std.AutoArrayHashMap;
 
 pub const ValueType = enum { Bool, Number, Nil, String };
 
@@ -47,7 +48,7 @@ pub const NutString = struct {
     }
 
     pub fn clone_str(alloc: Allocator, str: []u8) []u8 {
-        var new_str = alloc.alloc(u8, str.len) catch  {
+        var new_str = alloc.alloc(u8, str.len) catch {
             @panic("Out Of memory");
         };
 
@@ -72,21 +73,33 @@ pub const NutString = struct {
     }
 };
 
+
+const NutNil = struct {
+
+};
+
+pub const NutUnion = union(ValueType) {
+    Bool: bool,
+    Number: f64,
+    Nil: NutNil,
+    String: *NutString,
+};
+
 pub const Value = struct {
     v_type: ValueType,
-    value: union { boolean: bool, number: f64, string: *NutString },
+    value: NutUnion,
     is_on_heap: bool = false,
 
     pub fn bool_init(value: bool) Value {
-        return .{ .v_type = .Bool, .value = .{ .boolean = value } };
+        return .{ .v_type = .Bool, .value = .{ .Bool = value } };
     }
 
     pub fn number_init(value: f64) Value {
-        return .{ .v_type = .Bool, .value = .{ .number = value } };
+        return .{ .v_type = .Bool, .value = .{ .Number = value } };
     }
 
     pub fn value_new(allocator: Allocator, value: anytype) *Value {
-        var val = allocator.create(Value)catch {
+        var val = allocator.create(Value) catch {
             @panic("Out Of memory");
         };
         val.is_on_heap = true;
@@ -94,23 +107,23 @@ pub const Value = struct {
         switch (@TypeOf(value)) {
             f64, i64 => {
                 val.v_type = .Number;
-                val.value = .{ .number = value };
+                val.value = .{ .Number = value };
             },
             bool => {
                 val.v_type = .Bool;
-                val.value = .{ .boolean = value };
+                val.value = .{ .Bool = value };
             },
             @TypeOf(null) => {
                 val.v_type = .Nil;
             },
             []u8 => {
                 val.v_type = .String;
-                val.value = .{ .string = NutString.new(allocator, value) };
+                val.value = .{ .String = NutString.new(allocator, value) };
                 val.is_on_heap = true;
             },
             *NutString => {
                 val.v_type = .String;
-                val.value = .{ .string = value };
+                val.value = .{ .String = value };
             },
             else => @compileError("Can not coarse type to nut value"),
         }
@@ -128,7 +141,7 @@ pub const Value = struct {
 
     pub fn deinit(self: *Value, allocator: Allocator) void {
         switch (self.v_type) {
-            .String => self.value.string.deinit(allocator),
+            .String => self.value.String.deinit(allocator),
             else => {},
         }
         if (self.is_on_heap) allocator.destroy(self);
@@ -141,10 +154,10 @@ pub const Value = struct {
         .String => *NutString,
     } {
         return switch (_type) {
-            .Bool => self.value.boolean,
-            .Number => self.value.number,
+            .Bool => self.value.Bool,
+            .Number => self.value.Number,
             .Nil => null,
-            .String => self.value.string,
+            .String => self.value.String,
         };
     }
 
@@ -163,32 +176,17 @@ pub const Value = struct {
         }
     }
 
-    pub fn print_value(self: *Value) void {
-        switch (self.v_type) {
-            .Number => std.debug.print("{d}", .{self.value.number}),
-            .Bool => std.debug.print("{}", .{self.value.boolean}),
-            .Nil => std.debug.print("Nil", .{}),
-            .String => std.debug.print("{s}", .{self.value.string}),
-        }
-    }
 
-    fn format(self: *Value, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {
-        _ = self;
-        _ = fmt;
-        _ = options;
+ 
 
-        switch (self.t_type) {
-            .Bool => writer.writeAll(self.value.boolean),
-            else => writer.WriteAll("Nut Value"),
-        }
-    }
+ 
 
     pub fn print_this(self: *Value) void {
         switch (self.v_type) {
-            .Bool => std.debug.print("{}", .{self.value.boolean}),
+            .Bool => std.debug.print("{}", .{self.value.Bool}),
             .Nil => std.debug.print("Nil", .{}),
-            .Number => std.debug.print("{d}", .{self.value.number}),
-            .String => std.debug.print("{s}", .{self.value.string.src}),
+            .Number => std.debug.print("{d}", .{self.value.Number}),
+            .String => std.debug.print("{s}", .{self.value.String.src}),
         }
     }
 };

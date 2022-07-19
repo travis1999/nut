@@ -132,7 +132,7 @@ pub const Scanner = struct {
     }
 
     fn token_error(self: *Scanner, message: []const u8) void {
-        print("Error at line: {}, {s}, '{}'", .{ self.line, message, self.source[self.current] });
+        print("Error at line: {}, {s}, '{c}'", .{ self.line, message, self.source[self.current - 1] });
         std.os.exit(98);
     }
 

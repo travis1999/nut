@@ -42,9 +42,9 @@ pub const Compiler = struct {
         var gen = generator.Generator.init(cnk, Mode.DEBUG);
         var par = parser.Parser.init(self.allocator, &scan, &gen);
 
-        try par.parse();
+        par.parse();
 
-        try cnk.disassemble_chunk("debug");
+        cnk.disassemble_chunk("debug");
         return cnk;
     }
 };

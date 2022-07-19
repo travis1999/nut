@@ -24,7 +24,9 @@ pub const OpCode = enum {
     GREATER,
     LESS,
     PRINT,
-    POP 
+    POP,
+    DEFINE_GLOBAL,
+    DEFINE_GLOBAL_LONG
 };
 
 pub const Chunk = struct {
@@ -56,30 +58,36 @@ pub const Chunk = struct {
         self.allocator.destroy(self);
     }
 
-    pub fn write_chunk(self: *Chunk, op: OpCode, line: usize) !void {
-        try self.write_u8(@enumToInt(op), line);
+    pub fn add_line(self: *Chunk, line: usize) void {
+        self.lines.append(line) catch {
+            @panic("Error writing chunk, out of memory");
+        };
     }
 
-    pub fn write_u8(self: *Chunk, _value: u8, line: usize) !void {
-        try self.code.append(_value);
-        try self.lines.append(line);
+    pub fn write_chunk(self: *Chunk, op: OpCode, line: usize) void {
+        self.write_u8(@enumToInt(op), line);
     }
 
-    pub fn write_u16(self: *Chunk, _value: u16, line: usize) !void {
+    pub fn write_u8(self: *Chunk, _value: u8, line: usize) void {
+        self.code.append(_value) catch {
+            @panic("Error writing chunk, out of memory");
+        };
+
+        self.add_line(line);
+    }
+
+    pub fn write_u16(self: *Chunk, _value: u16, line: usize) void {
         //split into two u8s
-        try self.lines.append(line);
 
-        try self.code.append(_value >> 8);
-        try self.code.append(_value & 0xFF);
+        self.write_u8(_value >> 8, line);
+        self.write_u8(_value & 0xFF, line);
     }
 
-    pub fn write_u32(self: *Chunk, _value: u32, line: usize) !void {
-        try self.lines.append(line);
-
+    pub fn write_u32(self: *Chunk, _value: u32, line: usize) void {
         var bytes = [4]u32{ _value >> 24, _value >> 16, _value >> 8, _value & 0xFF };
 
         for (bytes) |b| {
-            try self.code.append(@intCast(u8, b));
+            self.write_u8(@intCast(u8, b), line);
         }
     }
 
@@ -100,17 +108,17 @@ pub const Chunk = struct {
         return @as(u32, self.code_at(_index)) << 24 | @as(u32, self.code_at(_index + 1)) << 16 | @as(u32, self.code_at(_index + 2)) << 8 | @as(u32, self.code_at(_index + 3));
     }
 
-    pub fn disassemble_chunk(self: *Chunk, name: []const u8) !void {
+    pub fn disassemble_chunk(self: *Chunk, name: []const u8) void {
         print("\n=== {s} ===\n", .{name});
 
         var offset: usize = 0;
 
         while (offset < self.code.items.len) {
-            offset = try self.disasemble_ins(offset);
+            offset = self.disasemble_ins(offset);
         }
     }
 
-    pub fn disasemble_ins(self: *Chunk, offset: usize) !usize {
+    pub fn disasemble_ins(self: *Chunk, offset: usize) usize {
         var of_tmp = offset;
 
         var op = @intToEnum(OpCode, self.read_u8(offset));
@@ -121,10 +129,9 @@ pub const Chunk = struct {
         //line(4)//op(1)//oprand(1)
 
         if (line == self.pre_line) {
-            print("{d:0>4} {s:>8} {}", .{ offset, "|", op});
+            print("{d:0>4} {s:>6} {}", .{ offset, "|", op });
         } else {
-            print("{d:0>4} {d:>8} {}", .{ offset, line, op});
-
+            print("{d:0>4} {d:>6} {}", .{ offset, line, op });
             self.pre_line = line;
         }
 
@@ -150,8 +157,10 @@ pub const Chunk = struct {
         return of_tmp;
     }
 
-    pub fn add_constant(self: *Chunk, val: *Value) !usize {
-        try self.constants.append(val);
+    pub fn add_constant(self: *Chunk, val: *Value) usize {
+        self.constants.append(val) catch {
+            @panic("Error writing chunk, out of memory");
+        };
         return self.constants.items.len - 1;
     }
 };
