@@ -200,6 +200,50 @@ pub const Vm = struct {
                     var val = self.pop();
                     var name = self.pop();
                     try self.globals.put(name.as(.String).src, val);
+
+                    try self.push(val);
+                },
+
+                .LOAD_GLOBAL => {
+                    var glob = self.read_constant();
+
+                    if (self.globals.contains(glob.as(.String).src)) {
+                        try self.push(self.globals.get(glob.as(.String).src).?);
+                    } else {
+                        self.runtime_error("Undefined variable {s}\n", .{glob.as(.String).src});
+                    }
+                },
+
+                .LOAD_GLOBAL_LONG => {
+                    var glob = self.read_constant_long();
+
+                    if (self.globals.contains(glob.as(.String).src)) {
+                        try self.push(self.globals.get(glob.as(.String).src).?);
+                    } else {
+                        self.runtime_error("Undefined variable {s}\n", .{glob.as(.String).src});
+                    }
+                },
+
+                .SET_GLOBAL => {
+                    var val = self.pop();
+                    var glob = self.read_constant();
+
+                    if (self.globals.contains(glob.as(.String).src)) {
+                        try self.globals.put(glob.as(.String).src, val);
+                    } else {
+                        self.runtime_error("Undefined variable {s}\n", .{glob.as(.String).src});
+                    }
+                },
+
+                .SET_GLOBAL_LONG => {
+                    var val = self.pop();
+                    var glob = self.read_constant_long();
+
+                    if (self.globals.contains(glob.as(.String).src)) {
+                        try self.globals.put(glob.as(.String).src, val);
+                    } else {
+                        self.runtime_error("Undefined variable {s}\n", .{glob.as(.String).src});
+                    }
                 },
             };
         }

@@ -30,7 +30,7 @@ const Precedence = enum {
     PRIMARY,
 };
 
-const ParseFn = fn (self: *Parser) void;
+const ParseFn = fn (*Parser, bool) void;
 
 const ParseRule = struct { prefix: ?ParseFn, infix: ?ParseFn, precedence: Precedence };
 
@@ -63,7 +63,7 @@ pub const Parser = struct {
         .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // GREATER_EQUAL
         .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // LESS
         .{ .prefix = null, .infix = binary, .precedence = .COMPARISON }, // LESS_EQUAL
-        .{ .prefix = null, .infix = null, .precedence = .NONE }, // IDENTIFIER
+        .{ .prefix = variable, .infix = null, .precedence = .NONE }, // IDENTIFIER
         .{ .prefix = string, .infix = null, .precedence = .NONE }, // STRING
         .{ .prefix = number, .infix = null, .precedence = .NONE }, // NUMBER
         .{ .prefix = null, .infix = null, .precedence = .NONE }, // AND
@@ -113,7 +113,7 @@ pub const Parser = struct {
         self.error_at(&self.current.?, message);
     }
 
-    fn literal(self: *Parser) void {
+    fn literal(self: *Parser, _: bool) void {
         switch (self.previous.?.t_type) {
             .FALSE => self.generator.write_opcode(.FALSE, self.previous.?.line),
             .NIL => self.generator.write_opcode(.NIL, self.previous.?.line),
@@ -122,7 +122,22 @@ pub const Parser = struct {
         }
     }
 
-    fn string(self: *Parser) void {
+    fn variable(self: *Parser, can_assign: bool) void {
+        self.named_variable(self.previous.?, can_assign);
+    }
+
+    fn named_variable(self: *Parser, name: Token, can_assign: bool) void {
+        var n = name;
+
+        if (can_assign and self.match(.EQUAL)) {
+            self.expression();
+            self.generator.emit_global_set(Value.value_new(self.allocator, n.value), name.line);
+        } else {
+            self.generator.emit_global_get(Value.value_new(self.allocator, name.value), name.line);
+        }
+    }
+
+    fn string(self: *Parser, _: bool) void {
         var tok = self.previous.?;
         _ = self.generator.emit_constant(Value.value_new(self.allocator, tok.value[1 .. tok.value.len - 1]), tok.line);
     }
@@ -137,9 +152,8 @@ pub const Parser = struct {
             print("at '{s}'", .{token.value});
         }
 
-        print("{s} \n", .{message});
+        print("\n{s} \n", .{message});
         self.panic_mode = true;
-
         self.haserror = true;
     }
 
@@ -156,7 +170,7 @@ pub const Parser = struct {
         self.generator.emit_return(self.current.?.line);
     }
 
-    fn number(self: *Parser) void {
+    fn number(self: *Parser, _: bool) void {
         var value = std.fmt.parseFloat(f64, self.previous.?.value) catch {
             // parse float should never fail as the string is validated while
             // scanning
@@ -167,12 +181,12 @@ pub const Parser = struct {
         _ = self.generator.emit_constant(val, self.previous.?.line);
     }
 
-    fn grouping(self: *Parser) void {
+    fn grouping(self: *Parser, _: bool) void {
         self.expression();
         _ = self.consume(TokenType.RIGHT_PAREN, "expect ')' after expression");
     }
 
-    fn unary(self: *Parser) void {
+    fn unary(self: *Parser, _: bool) void {
         var previous_type = self.previous.?.t_type;
         self.parse_precedence(.UNARY);
 
@@ -196,7 +210,7 @@ pub const Parser = struct {
         self.emit_byte(op1);
     }
 
-    fn binary(self: *Parser) void {
+    fn binary(self: *Parser, _: bool) void {
         var _type = self.previous.?.t_type;
         var rule = self.get_rule(_type);
 
@@ -226,15 +240,24 @@ pub const Parser = struct {
 
         var prefix_rule = self.get_rule(self.previous.?.t_type).prefix;
         if (prefix_rule) |rule| {
-            rule(self);
+
+            var can_assign = @enumToInt(prec) <= @enumToInt(Precedence.ASSIGNMENT);
+            rule(self, can_assign);
+             
 
             while (@enumToInt(prec) <= @enumToInt(self.get_rule(self.current.?.t_type).precedence)) {
                 self.advance();
                 var infixrule = self.get_rule(self.previous.?.t_type).infix;
                 if (infixrule) |rule_2| {
-                    rule_2(self);
+                    rule_2(self, can_assign);
+                }
+
+                if (can_assign and  self.match(.EQUAL)) {
+                    self.error_at_current("Invalid assignment target");
                 }
             }
+
+
         } else {
             self.error_at_current("Expected expression");
         }
