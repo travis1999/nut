@@ -53,10 +53,32 @@ pub const Generator = struct {
     pub fn define_variable(self: *Generator, global: usize, line: usize) void {
         if (global < 254) {
             self.write_opcode(.DEFINE_GLOBAL, line);
-            self.write_oprand_u8(@intCast(u8, global), line);
-        }else {
+            // self.write_oprand_u8(@intCast(u8, global), line);
+        } else {
             self.write_opcode(.DEFINE_GLOBAL_LONG, line);
-            self.write_oprand_u32(@intCast(u32, global), line);
+            // self.write_oprand_u32(@intCast(u32, global), line);
+        }
+    }
+
+    pub fn emit_global_get(self: *Generator, value: *Value, line: usize) void {
+        var pos = self.make_constant(value);
+        if (pos < 254) {
+            self.write_opcode(.LOAD_GLOBAL, line);
+            self.write_oprand_u8(@intCast(u8, pos), line);
+        } else {
+            self.write_opcode(.LOAD_GLOBAL_LONG, line);
+            self.write_oprand_u32(@intCast(u32, pos), line);
+        }
+    }
+
+    pub fn emit_global_set(self: *Generator, value: *Value, line: usize) void {
+        var pos = self.make_constant(value);
+        if (pos < 254) {
+            self.write_opcode(.SET_GLOBAL, line);
+            self.write_oprand_u8(@intCast(u8, pos), line);
+        } else {
+            self.write_opcode(.SET_GLOBAL_LONG, line);
+            self.write_oprand_u32(@intCast(u32, pos), line);
         }
     }
 
