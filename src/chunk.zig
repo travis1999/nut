@@ -167,6 +167,30 @@ pub const Chunk = struct {
     }
 
     pub fn add_constant(self: *Chunk, val: *Value) usize {
+        switch (val.v_type) {
+            .String => {
+                for (self.constants.items) |item, idx| {
+                    if (item.is(.String)) {
+                        if (std.mem.eql(u8, item.as(.String).src, val.as(.String).src)) {
+                            val.deinit(self.allocator);
+                            return idx;
+                        }
+                    }
+                }
+            },
+            .Number => {
+                for (self.constants.items) |item, idx| {
+                    if (item.is(.Number)) {
+                        if (item.as(.Number) == val.as(.Number)) {
+                            self.allocator.destroy(val);
+                            return idx;
+                        }
+                    }
+                }
+            },
+            else => unreachable,
+        }
+
         self.constants.append(val) catch {
             @panic("Error writing chunk, out of memory");
         };
