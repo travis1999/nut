@@ -32,7 +32,7 @@ pub const Compiler = struct {
         _ = byte;
     }
 
-    pub fn compile(self: *Compiler, source: [] u8) !*chunk.Chunk {
+    pub fn compile(self: *Compiler, source: [] u8) !?*chunk.Chunk {
         _ = self;
 
         var scan = scanner.Scanner.init(source);
@@ -43,6 +43,11 @@ pub const Compiler = struct {
         var par = parser.Parser.init(self.allocator, &scan, &gen);
 
         par.parse();
+
+        if (par.haserror) {
+            cnk.deinit();
+            return null;
+        }
 
         cnk.disassemble_chunk("debug");
         return cnk;
