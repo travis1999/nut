@@ -7,6 +7,8 @@ const value = @import("value.zig");
 const Value = value.Value;
 const ValueArray = value.ValueArray;
 
+
+// zig fmt: off
 pub const OpCode = enum { 
     RETURN,
     LOAD_CONST,
